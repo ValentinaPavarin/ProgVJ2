@@ -8,12 +8,15 @@ local murcielagosDerrotados = 0
 
 -- Temporizador de generación
 local spawnTimer = 0
-local spawnIntervalo = 2.0 -- Tiempo en segundos entre cada murciélago
+local spawnIntervalo = 2.0 
 
 local imgCielo, imgSuelo
 local estadoJuego = "JUGANDO"
 
--- Función de colisión ajustada con margen
+-- Sonidos de Fin de Juego
+local sndVictoria, sndDerrota
+local sonidoFinReproducido = false
+
 local function colision(a, b)
     local margenX = 15
     local margenY = 10
@@ -41,6 +44,10 @@ function love.load()
     imgCielo = love.graphics.newImage("assets/cielo.png")
     imgSuelo = love.graphics.newImage("assets/suelo.png")
 
+    -- Cargar Sonidos de Sistema
+    sndVictoria = love.audio.newSource("assets/victoria.wav", "static")
+    sndDerrota = love.audio.newSource("assets/derrota.wav", "static")
+
     jugador = Jugador.nuevo()
     Enemigo.cargarRecursos()
 end
@@ -67,7 +74,7 @@ function love.update(dt)
     jugador:update(dt)
     Enemigo.actualizarAnimacion(dt)
 
-    -- Aparición CONTINUA de murciélagos mientras el juego siga activo
+    -- Aparición continua
     spawnTimer = spawnTimer + dt
     if spawnTimer >= spawnIntervalo then
         spawnTimer = 0
@@ -94,11 +101,19 @@ function love.update(dt)
         end
     end
 
-    -- Condiciones de fin de juego
+    -- Verificación de fin de juego y reproducción de audio final
     if jugador.vidas <= 0 then
         estadoJuego = "DERROTA"
+        if not sonidoFinReproducido then
+            sndDerrota:play()
+            sonidoFinReproducido = true
+        end
     elseif murcielagosDerrotados >= totalMurcielagos then
         estadoJuego = "VICTORIA"
+        if not sonidoFinReproducido then
+            sndVictoria:play()
+            sonidoFinReproducido = true
+        end
     end
 end
 
@@ -119,13 +134,13 @@ function love.draw()
     -- Dibujar jugador
     jugador:draw(estadoJuego)
 
-    -- HUD en texto negro
+    -- HUD
     love.graphics.setColor(0, 0, 0, 1)
     love.graphics.print("Vidas: " .. jugador.vidas, 20, 20)
     love.graphics.print("Murcielagos eliminados: " .. murcielagosDerrotados .. "/" .. totalMurcielagos, 20, 40)
     love.graphics.print("A/D: Moverse | ESPACIO: Saltar | CLIC: Atacar", 20, 60)
 
-    -- Fin de juego
+    -- Mensajes finales
     if estadoJuego == "VICTORIA" then
         love.graphics.setColor(0, 0.6, 0, 1)
         love.graphics.print("¡VICTORIA! Eliminaste a todos los murcielagos", 220, 250, 0, 1.5, 1.5)
