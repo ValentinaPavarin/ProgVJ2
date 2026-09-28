@@ -23,47 +23,43 @@ function Player:init(world, x, y)
     self.world:add(self, self.x, self.y, self.width, self.height)
 end
 
-function Player:update(dt, bullets)
-    -- Movimiento
-    local dx = 0
+-- En Player:update pasamos el objeto 'game'
+function Player:update(dt, bullets, game)
+    -- Controles de movimiento...
     if love.keyboard.isDown("left") or love.keyboard.isDown("a") then
-        dx = dx - self.speed * dt
-    end
-    if love.keyboard.isDown("right") or love.keyboard.isDown("d") then
-        dx = dx + self.speed * dt
-    end
-
-    if dx ~= 0 then
-        local nextX = math.max(0, math.min(love.graphics.getWidth() - self.width, self.x + dx))
-        self.x, self.y = self.world:move(self, nextX, self.y)
+        self.x = self.x - self.speed * dt
+    elseif love.keyboard.isDown("right") or love.keyboard.isDown("d") then
+        self.x = self.x + self.speed * dt
     end
 
-   
-    if not self.canShoot then
-        self.shootTimer = self.shootTimer + dt
-        if self.shootTimer >= self.shootCooldown then
-            self.canShoot = true
-            self.shootTimer = 0
-        end
+    -- Cooldown de disparo
+    self.shootTimer = self.shootTimer + dt
+    if self.shootTimer >= self.shootCooldown then
+        self.canShoot = true
     end
 
-    -- Disparar con Espacio
+    -- Disparar
     if love.keyboard.isDown("space") and self.canShoot then
-        self:shoot(bullets)
+        self:shoot(bullets, game)
     end
+
+    self.x, self.y = self.world:move(self, self.x, self.y)
 end
 
-function Player:shoot(bullets)
+function Player:shoot(bullets, game)
     self.canShoot = false
-    
-    -- Posición X
+    self.shootTimer = 0
+
     local bulletX = self.x + (self.width / 2) - 4
-    
-    -- Posición Y
-    local bulletY = self.y - 30 
+    local bulletY = self.y - 30
 
     local newBullet = Bullet(self.world, bulletX, bulletY)
     table.insert(bullets, newBullet)
+
+    -- Reproducir sonido de disparo
+    if game then
+        game:playSound("shoot")
+    end
 end
 
 function Player:draw()

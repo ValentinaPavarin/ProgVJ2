@@ -16,6 +16,14 @@ function Game:init()
     self.isGameOver = false
     self.isVictory = false
 
+    -- Cargar Efectos de Sonido
+    self.sounds = {
+        shoot = love.audio.newSource("assets/sfx/shoot.wav", "static"),
+        loseLife = love.audio.newSource("assets/sfx/lose_life.wav", "static"),
+        victory = love.audio.newSource("assets/sfx/victory.wav", "static"),
+        gameOver = love.audio.newSource("assets/sfx/game_over.wav", "static")
+    }
+
     self.starfield = Starfield(100)
     self.bullets = {}
     self.enemies = {}
@@ -28,13 +36,23 @@ function Game:init()
     self.player = Player(self.world, startX, startY)
 end
 
+function Game:playSound(soundName)
+    if self.sounds[soundName] then
+        -- clone() permite reproducir el mismo sonido múltiples veces sin cortarlo
+        self.sounds[soundName]:clone():play()
+    end
+end
+
 function Game:loseLife()
     if self.isGameOver or self.isVictory then return end
 
     self.lives = self.lives - 1
+    self:playSound("loseLife")
+
     if self.lives <= 0 then
         self.lives = 0
         self.isGameOver = true
+        self:playSound("gameOver")
     end
 end
 
@@ -44,20 +62,21 @@ function Game:addScore(points)
     self.score = self.score + points
     if self.score >= self.targetScore then
         self.isVictory = true
+        self:playSound("victory")
     end
 end
 
 function Game:update(dt)
     self.starfield:update(dt)
 
-    -- Reiniciar partida con R
+    -- Reiniciar con R
     if (self.isGameOver or self.isVictory) and love.keyboard.isDown("r") then
         self:init()
         return
     end
 
     if not self.isGameOver and not self.isVictory then
-        self.player:update(dt, self.bullets)
+        self.player:update(dt, self.bullets, self)
 
         -- Spawner de enemigos
         self.spawnTimer = self.spawnTimer + dt
@@ -66,7 +85,7 @@ function Game:update(dt)
             self:spawnEnemy()
         end
 
-        -- Actualizar balas (PASANDO 'self' PARA PERMITIR SUMAR PUNTAJE)
+        -- Actualizar balas
         for i = #self.bullets, 1, -1 do
             local b = self.bullets[i]
             b:update(dt, self)
@@ -75,7 +94,7 @@ function Game:update(dt)
             end
         end
 
-        -- Actualizar enemigos (PASANDO 'self' PARA PERMITIR RESTAR VIDAS)
+        -- Actualizar enemigos
         for i = #self.enemies, 1, -1 do
             local e = self.enemies[i]
             e:update(dt, self)
@@ -110,21 +129,21 @@ function Game:draw()
         e:draw()
     end
 
-    -- 1. Mostrar Puntaje en texto
+    -- Dibujar Puntaje
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("Score: " .. self.score .. " / " .. self.targetScore, 10, 10)
 
-    -- 2. Dibujar Vidas como CÍRCULOS ROJOS en la esquina superior derecha
+    -- Dibujar Círculos Rojos para las Vidas
     local startX = love.graphics.getWidth() - 30
     local circleY = 20
     local radius = 8
 
     for i = 1, self.lives do
-        love.graphics.setColor(1, 0.2, 0.2) -- Color Rojo
+        love.graphics.setColor(1, 0.2, 0.2)
         love.graphics.circle("fill", startX - ((i - 1) * 22), circleY, radius)
     end
 
-    -- Pantallas de Fin de Juego
+    -- Carteles de Victoria / Derrota
     local screenW = love.graphics.getWidth()
     local screenH = love.graphics.getHeight()
 
