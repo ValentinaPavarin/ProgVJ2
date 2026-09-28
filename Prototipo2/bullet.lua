@@ -2,28 +2,52 @@ local Class = require("lib.hump.class")
 
 local Bullet = Class{}
 
+
+local function bulletFilter(item, other)
+    if other.scoreValue then
+        return "touch"
+    end
+    return nil 
+end
+
 function Bullet:init(world, x, y)
     self.world = world
     self.x = x
     self.y = y
-    self.width = 4
-    self.height = 10
+    
+    self.image = love.graphics.newImage("assets/bullet.png")
+    self.width = self.image:getWidth()
+    self.height = self.image:getHeight()
+    
     self.speed = 500
     self.isDead = false
 
-    -- Registrar la bala en Bump
     self.world:add(self, self.x, self.y, self.width, self.height)
 end
 
-function Bullet:update(dt)
-    -- Mover la bala hacia arriba
-    local nextY = self.y - self.speed * dt
+function Bullet:update(dt, game)
+    if self.isDead then return end
 
-    local actualX, actualY, cols, len = self.world:move(self, self.x, nextY)
+    local futureY = self.y - self.speed * dt
+
+   
+    local actualX, actualY, cols, len = self.world:move(self, self.x, futureY, bulletFilter)
     self.x = actualX
     self.y = actualY
 
-    -- Si sale de la pantalla por la parte superior, marcar para eliminar
+    -- Detección de colisión con enemigos
+    for i = 1, len do
+        local other = cols[i].other
+        if other.scoreValue and not other.isDead then
+            other:destroy()
+            self:destroy()
+            if game then
+                game.score = game.score + other.scoreValue
+            end
+            break
+        end
+    end
+
     if self.y + self.height < 0 then
         self:destroy()
     end
@@ -39,9 +63,10 @@ function Bullet:destroy()
 end
 
 function Bullet:draw()
-    love.graphics.setColor(1, 1, 0) -- Amarillo
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-    love.graphics.setColor(1, 1, 1) -- Resetear color
+    if not self.isDead then
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.draw(self.image, self.x, self.y)
+    end
 end
 
 return Bullet
