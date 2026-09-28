@@ -2,12 +2,11 @@ local Class = require("lib.hump.class")
 
 local Bullet = Class{}
 
-
 local function bulletFilter(item, other)
     if other.scoreValue then
         return "touch"
     end
-    return nil 
+    return nil
 end
 
 function Bullet:init(world, x, y)
@@ -29,20 +28,17 @@ function Bullet:update(dt, game)
     if self.isDead then return end
 
     local futureY = self.y - self.speed * dt
-
-   
     local actualX, actualY, cols, len = self.world:move(self, self.x, futureY, bulletFilter)
     self.x = actualX
     self.y = actualY
 
-    -- Detección de colisión con enemigos
     for i = 1, len do
         local other = cols[i].other
         if other.scoreValue and not other.isDead then
             other:destroy()
             self:destroy()
             if game then
-                game.score = game.score + other.scoreValue
+                game:addScore(other.scoreValue)
             end
             break
         end

@@ -15,17 +15,20 @@ function Enemy:init(world, x, y)
     self.scoreValue = 100
     self.isDead = false
 
-   
     self.world:add(self, self.x, self.y, self.width, self.height)
 end
 
-function Enemy:update(dt)
-    if self.isDead then return end 
+function Enemy:update(dt, game)
+    if self.isDead then return end
 
     self.y = self.y + self.speed * dt
     self.x, self.y = self.world:move(self, self.x, self.y)
 
+    -- Si el enemigo llega al extremo inferior
     if self.y > love.graphics.getHeight() then
+        if game then
+            game:loseLife()
+        end
         self:destroy()
     end
 end
