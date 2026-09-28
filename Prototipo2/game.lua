@@ -2,6 +2,7 @@ local Class = require("lib.hump.class")
 local bump = require("lib.bump")
 local Player = require("player")
 local Enemy = require("enemy")
+local Starfield = require("starfield")
 
 local Game = Class{}
 
@@ -12,12 +13,14 @@ function Game:init()
     self.isGameOver = false
     self.isVictory = false
 
+    -- Instanciar el fondo de estrellas
+    self.starfield = Starfield(100)
+
     self.bullets = {}
     self.enemies = {}
 
-    -- Temporizador para la aparición aleatoria de enemigos
     self.spawnTimer = 0
-    self.spawnInterval = 1.5 -- Aparece un enemigo cada 1.5 segundos
+    self.spawnInterval = 1.5
 
     local startX = (love.graphics.getWidth() / 2) - 16
     local startY = love.graphics.getHeight() - 50
@@ -25,17 +28,20 @@ function Game:init()
 end
 
 function Game:update(dt)
+
+    self.starfield:update(dt)
+
     if not self.isGameOver and not self.isVictory then
         self.player:update(dt, self.bullets)
 
-        -- Generación aleatoria de enemigos
+        -- Spawner de enemigos
         self.spawnTimer = self.spawnTimer + dt
         if self.spawnTimer >= self.spawnInterval then
             self.spawnTimer = 0
             self:spawnEnemy()
         end
 
-        -- Actualizar y limpiar balas
+        -- Actualizar balas
         for i = #self.bullets, 1, -1 do
             local b = self.bullets[i]
             b:update(dt, self)
@@ -44,7 +50,7 @@ function Game:update(dt)
             end
         end
 
-        -- Actualizar y limpiar enemigos
+        -- Actualizar enemigos
         for i = #self.enemies, 1, -1 do
             local e = self.enemies[i]
             e:update(dt)
@@ -56,29 +62,30 @@ function Game:update(dt)
 end
 
 function Game:spawnEnemy()
-   
     local enemyWidth = 32
     local randomX = math.random(0, love.graphics.getWidth() - enemyWidth)
-    local startY = -40 
+    local startY = -40
 
     local newEnemy = Enemy(self.world, randomX, startY)
     table.insert(self.enemies, newEnemy)
 end
 
 function Game:draw()
+    -- 1. Dibujar fondo de estrellas
+    self.starfield:draw()
+
+    -- 2. Dibujar entidades encima
     self.player:draw()
     
-    -- Dibujar balas
     for _, b in ipairs(self.bullets) do
         b:draw()
     end
 
-    -- Dibujar enemigos
     for _, e in ipairs(self.enemies) do
         e:draw()
     end
     
-    -- Puntaje
+    -- 3. Interfaz / Score
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("Score: " .. self.score, 10, 10)
 end

@@ -56,11 +56,11 @@ end
 function Player:shoot(bullets)
     self.canShoot = false
     
-    -- Centrar horizontalmente la bala
+    -- Posición X
     local bulletX = self.x + (self.width / 2) - 4
     
-   
-    local bulletY = self.y - 12 
+    -- Posición Y
+    local bulletY = self.y - 30 
 
     local newBullet = Bullet(self.world, bulletX, bulletY)
     table.insert(bullets, newBullet)
