@@ -1,5 +1,5 @@
 function love.conf(t)
-    t.title = "Laboratorio Defender - Prototipo 3"
+    t.title = "Laboratorio Defender"
     t.window.width = 800
     t.window.height = 600
 end

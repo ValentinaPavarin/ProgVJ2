@@ -11,7 +11,7 @@ function Level:init()
     self.scaleX = screenWidth / self.fondo:getWidth()
     self.scaleY = screenHeight / self.fondo:getHeight()
 
-    -- Plataformas con la imagen real
+    -- Plataformas del nivel
     self.platforms = {
         { x = 100, y = 430, scaleX = 0.35, scaleY = 0.35 },
         { x = 400, y = 330, scaleX = 0.35, scaleY = 0.35 },
@@ -31,11 +31,11 @@ function Level:draw()
         love.graphics.draw(self.imgPlataforma, p.x, p.y, 0, p.scaleX, p.scaleY)
     end
 
-    -- Texto indicador y guía para volver
+    -- Texto indicador para volver al menú
     love.graphics.setColor(0, 0, 0, 0.8)
-    love.graphics.rectangle("fill", 20, 20, 320, 40, 5, 5)
+    love.graphics.rectangle("fill", 20, 20, 260, 35, 5, 5)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.print("NIVEL 1 - Presiona ESC para volver al menú", 30, 32)
+    love.graphics.print("Presiona ESC para volver al menú", 30, 30)
 end
 
 function Level:keypressed(key)
