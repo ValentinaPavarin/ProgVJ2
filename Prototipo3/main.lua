@@ -1,5 +1,6 @@
 local Class = require 'lib.class'
 local MainMenu = require 'MainMenu'
+local ControlsMenu = require 'ControlsMenu'
 local Level = require 'Level'
 
 local estadoActual = nil
@@ -7,6 +8,8 @@ local estadoActual = nil
 function cambiarEstado(nuevoEstado)
     if nuevoEstado == "menu" then
         estadoActual = MainMenu()
+    elseif nuevoEstado == "controles" then
+        estadoActual = ControlsMenu()
     elseif nuevoEstado == "nivel" then
         estadoActual = Level()
     end
