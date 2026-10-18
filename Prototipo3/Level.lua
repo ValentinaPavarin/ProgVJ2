@@ -78,4 +78,9 @@ function Level:keypressed(key)
     end
 end
 
+function Level:mousepressed(x, y, button)
+    if button == 1 then -- Click izquierdo
+        self.player:shoot()
+    end
+end
 return Level

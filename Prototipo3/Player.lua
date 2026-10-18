@@ -14,19 +14,24 @@ function Player:init(x, y)
 
     self.facing = 1 -- 1 derecha, -1 izquierda
 
-    -- Cargar recursos
+    -- Cargar recursos visuales
     self.idleImg = love.graphics.newImage('assets/hurt.png')
     self.walkSheet = love.graphics.newImage('assets/walk.png')
     self.jumpSheet = love.graphics.newImage('assets/jump.png')
+    self.attackSheet = love.graphics.newImage('assets/attack.png')
+    self.bulletImg = love.graphics.newImage('assets/municion.png')
 
     self.walkFrames = self:loadQuads(self.walkSheet, 8)
     self.jumpFrames = self:loadQuads(self.jumpSheet, 8)
+    self.attackFrames = self:loadQuads(self.attackSheet, 2) -- 2 frames en attack.png
 
     self.animTimer = 0
     self.currentFrame = 1
     self.isGrounded = false
+    self.isAttacking = false
+    self.attackTimer = 0
 
-    -- Dimensiones de la caja de colisión del jugador (centrada)
+    -- Dimensiones de colisión
     self.width = 24
     self.height = 50
 
@@ -34,6 +39,9 @@ function Player:init(x, y)
     self.hp = 100
     self.maxHp = 100
     self.ammo = 30
+
+    -- Lista de proyectiles activos del jugador
+    self.bullets = {}
 end
 
 function Player:loadQuads(image, frameCount)
@@ -49,6 +57,28 @@ function Player:loadQuads(image, frameCount)
     return quads
 end
 
+-- Función para disparar mediante evento personalizado
+function Player:shoot()
+    if self.ammo > 0 then
+        self.ammo = self.ammo - 1
+        self.isAttacking = true
+        self.attackTimer = 0.25 -- Duración visual del ataque
+
+        -- Crear proyectil
+        local bulletX = self.x + (self.facing * 20)
+        local bulletY = self.y - 5
+        table.insert(self.bullets, {
+            x = bulletX,
+            y = bulletY,
+            vx = self.facing * 500,
+            facing = self.facing
+        })
+
+        -- Disparar evento personalizado para cumplir la consigna académica
+        EventDispatcher.publish("PLAYER_SHOOT", self.ammo)
+    end
+end
+
 function Player:update(dt, platforms)
     -- Movimiento horizontal
     self.vx = 0
@@ -62,7 +92,7 @@ function Player:update(dt, platforms)
 
     self.x = self.x + self.vx * dt
 
-    -- Limitar al jugador dentro de la pantalla (anchura de la ventana = 800 por defecto en Love2D)
+    -- Límites de pantalla
     local screenWidth = love.graphics.getWidth()
     if self.x < self.width / 2 then
         self.x = self.width / 2
@@ -77,21 +107,18 @@ function Player:update(dt, platforms)
         EventDispatcher.publish("PLAYER_JUMPED")
     end
 
-    -- Aplicar gravedad vertical
+    -- Gravedad
     self.vy = self.vy + self.gravity * dt
     self.y = self.y + self.vy * dt
 
-    -- Por defecto asumimos que está en el aire
     self.isGrounded = false
 
-    -- Comprobar colisiones estrictas con los rectángulos de las plataformas
-    -- Dentro de Player:update(dt, platforms)
+    -- Colisiones con plataformas
     if platforms then
         for _, p in ipairs(platforms) do
             local feetY = self.y + self.height / 2
             local prevFeetY = feetY - (self.vy * dt)
 
-            -- Usando el rectángulo exacto (p.x, p.y, p.w, p.h) de la clase Platform
             if self.x + self.width / 3 > p.x and self.x - self.width / 3 < p.x + p.w then
                 if prevFeetY <= p.y + 4 and feetY >= p.y and self.vy >= 0 then
                     self.y = p.y - self.height / 2
@@ -103,7 +130,7 @@ function Player:update(dt, platforms)
         end
     end
 
-    -- Suelo inferior absoluto del nivel (por si cae al fondo)
+    -- Suelo del nivel
     local floorY = 480
     if (self.y + self.height / 2) >= floorY then
         self.y = floorY - self.height / 2
@@ -111,8 +138,32 @@ function Player:update(dt, platforms)
         self.isGrounded = true
     end
 
+    -- Temporizador de ataque visual
+    if self.isAttacking then
+        self.attackTimer = self.attackTimer - dt
+        if self.attackTimer <= 0 then
+            self.isAttacking = false
+        end
+    end
+
+    -- Actualizar proyectiles activos
+    for i = #self.bullets, 1, -1 do
+        local b = self.bullets[i]
+        b.x = b.x + b.vx * dt
+        -- Eliminar si sale de la pantalla
+        if b.x < 0 or b.x > screenWidth then
+            table.remove(self.bullets, i)
+        end
+    end
+
     -- Actualizar animaciones
-    if self.vx ~= 0 and self.isGrounded then
+    if self.isAttacking then
+        self.animTimer = self.animTimer + dt
+        if self.animTimer > 0.1 then
+            self.animTimer = 0
+            self.currentFrame = (self.currentFrame % #self.attackFrames) + 1
+        end
+    elseif self.vx ~= 0 and self.isGrounded then
         self.animTimer = self.animTimer + dt
         if self.animTimer > 0.1 then
             self.animTimer = 0
@@ -132,7 +183,19 @@ end
 function Player:draw()
     local scale = 0.16
 
-    if not self.isGrounded then
+    -- Dibujar proyectiles
+    for _, b in ipairs(self.bullets) do
+        local bScale = 0.08
+        local bw, bh = self.bulletImg:getWidth(), self.bulletImg:getHeight()
+        love.graphics.draw(self.bulletImg, b.x, b.y, 0, b.facing * bScale, bScale, bw / 2, bh / 2)
+    end
+
+    -- Dibujar jugador según su estado
+    if self.isAttacking then
+        local q = self.attackFrames[self.currentFrame]
+        local _, _, w, h = q:getViewport()
+        love.graphics.draw(self.attackSheet, q, self.x, self.y, 0, self.facing * scale, scale, w / 2, h / 2)
+    elseif not self.isGrounded then
         local q = self.jumpFrames[self.currentFrame]
         local _, _, w, h = q:getViewport()
         love.graphics.draw(self.jumpSheet, q, self.x, self.y, 0, self.facing * scale, scale, w / 2, h / 2)
