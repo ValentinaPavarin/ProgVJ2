@@ -1,7 +1,8 @@
 local Class = require 'lib.class'
 local Player = require 'Player'
+local Enemy = require 'Enemy'
 
--- Definición de la clase PlatformObj directamente aquí para evitar errores de require
+-- Definición de la clase PlatformObj
 local PlatformObj = Class{}
 
 function PlatformObj:init(x, y, scale)
@@ -32,38 +33,97 @@ function Level:init()
     self.scaleX = screenWidth / self.fondo:getWidth()
     self.scaleY = screenHeight / self.fondo:getHeight()
 
-    -- Instanciar las plataformas usando PlatformObj localmente
+    -- Instanciar plataformas
     self.platforms = {
         PlatformObj(80, 410, 0.30),
-        PlatformObj(380, 330, 0.30),
+        PlatformObj(350, 330, 0.30),
         PlatformObj(150, 230, 0.30)
     }
+
+    self.enemiesDefeated = 0
+    self.totalEnemiesTarget = 10
+    self.enemies = {}
+
+    -- Alturas específicas predefinidas para las 3 franjas (alta, media, baja)
+    self.spawnHeights = { 200, 290, 390 }
+
+    -- Generar los primeros 3 enemigos iniciales (uno en cada altura)
+    for i = 1, 3 do
+        self:spawnNextEnemy()
+    end
 
     -- Instanciar al jugador
     self.player = Player(180, 360)
 end
 
+function Level:spawnNextEnemy()
+    -- Solo genera si aún no alcanzamos el total objetivo de 10
+    if self.enemiesDefeated + #self.enemies < self.totalEnemiesTarget then
+        -- Seleccionar una altura de forma cíclica o aleatoria entre las 3 franjas
+        local heightIndex = ((self.enemiesDefeated + #self.enemies) % #self.spawnHeights) + 1
+        local yPos = self.spawnHeights[heightIndex]
+        
+        -- Dirección aleatoria (1 izquierda a derecha, -1 derecha a izquierda)
+        local dir = (math.random(0, 1) == 0) and 1 or -1
+        
+        -- Posición X inicial fuera de la pantalla según la dirección
+        local screenWidth = love.graphics.getWidth()
+        local xPos = (dir == 1) and -50 or (screenWidth + 50)
+
+        table.insert(self.enemies, Enemy(xPos, yPos, dir))
+    end
+end
+
 function Level:update(dt)
-    self.player:update(dt, self.platforms)
+    self.player:update(dt, self.platforms, self.enemies)
+    
+    -- Actualizar enemigos y gestionar la reaparición secuencial
+    for i = #self.enemies, 1, -1 do
+        local enemy = self.enemies[i]
+        enemy:update(dt)
+        
+        if not enemy.alive then
+            table.remove(self.enemies, i)
+            self.enemiesDefeated = self.enemiesDefeated + 1
+            
+            -- Cuando uno muere, aparece inmediatamente el siguiente
+            self:spawnNextEnemy()
+        end
+    end
 end
 
 function Level:draw()
     -- Dibujar fondo
     love.graphics.draw(self.fondo, 0, 0, 0, self.scaleX, self.scaleY)
 
-    -- Dibujar cada plataforma
+    -- Dibujar plataformas
     for _, platform in ipairs(self.platforms) do
         platform:draw()
+    end
+
+    -- Dibujar enemigos activos
+    for _, enemy in ipairs(self.enemies) do
+        enemy:draw()
     end
 
     -- Dibujar jugador
     self.player:draw()
 
-    -- HUD
+    -- HUD dinámico
     love.graphics.setColor(0, 0, 0, 0.7)
-    love.graphics.rectangle("fill", 20, 20, 220, 40, 5, 5)
+    love.graphics.rectangle("fill", 20, 20, 310, 40, 5, 5)
     love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.print("HP: " .. self.player.hp .. " | Muni: " .. self.player.ammo, 30, 32)
+    love.graphics.print("HP: " .. self.player.hp .. " | Muni: " .. self.player.ammo .. " | Derrotados: " .. self.enemiesDefeated .. "/" .. self.totalEnemiesTarget, 30, 32)
+
+    -- Pantalla de Victoria al llegar a los 10
+    if self.enemiesDefeated >= self.totalEnemiesTarget then
+        love.graphics.setColor(0, 0, 0, 0.85)
+        love.graphics.rectangle("fill", 150, 180, 500, 120, 10, 10)
+        love.graphics.setColor(0, 1, 0, 1)
+        love.graphics.print("¡VICTORIA! Laboratorio Defendido", 210, 210, 0, 1.2, 1.2)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.print("Presiona ESC para volver al menú", 250, 255)
+    end
 
     -- Volver al menú
     love.graphics.setColor(0, 0, 0, 0.8)
@@ -72,15 +132,16 @@ function Level:draw()
     love.graphics.print("ESC para volver al menú", 550, 28)
 end
 
+function Level:mousepressed(x, y, button)
+    if button == 1 and self.enemiesDefeated < self.totalEnemiesTarget then
+        self.player:shoot()
+    end
+end
+
 function Level:keypressed(key)
     if key == 'escape' then
         cambiarEstado("menu")
     end
 end
 
-function Level:mousepressed(x, y, button)
-    if button == 1 then -- Click izquierdo
-        self.player:shoot()
-    end
-end
 return Level

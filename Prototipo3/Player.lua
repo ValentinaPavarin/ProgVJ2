@@ -23,7 +23,7 @@ function Player:init(x, y)
 
     self.walkFrames = self:loadQuads(self.walkSheet, 8)
     self.jumpFrames = self:loadQuads(self.jumpSheet, 8)
-    self.attackFrames = self:loadQuads(self.attackSheet, 2) -- 2 frames en attack.png
+    self.attackFrames = self:loadQuads(self.attackSheet, 2) -- 2 frames exactos
 
     self.animTimer = 0
     self.currentFrame = 1
@@ -63,6 +63,7 @@ function Player:shoot()
         self.ammo = self.ammo - 1
         self.isAttacking = true
         self.attackTimer = 0.25 -- Duración visual del ataque
+        self.currentFrame = 1 -- Reiniciar frame al empezar a disparar
 
         -- Crear proyectil
         local bulletX = self.x + (self.facing * 20)
@@ -74,12 +75,12 @@ function Player:shoot()
             facing = self.facing
         })
 
-        -- Disparar evento personalizado para cumplir la consigna académica
+        -- Disparar evento personalizado
         EventDispatcher.publish("PLAYER_SHOOT", self.ammo)
     end
 end
 
-function Player:update(dt, platforms)
+function Player:update(dt, platforms, enemies)
     -- Movimiento horizontal
     self.vx = 0
     if love.keyboard.isDown('d') or love.keyboard.isDown('right') then
@@ -138,6 +139,40 @@ function Player:update(dt, platforms)
         self.isGrounded = true
     end
 
+    -- Colisiones con enemigos
+    if enemies then
+        for _, enemy in ipairs(enemies) do
+            if enemy.alive then
+                local dx = math.abs(self.x - enemy.x)
+                local dy = math.abs(self.y - enemy.y)
+                if dx < (self.width / 2 + enemy.width / 2) and dy < (self.height / 2 + enemy.height / 2) then
+                    if not self.invulnerableTimer or self.invulnerableTimer <= 0 then
+                        self.hp = math.max(0, self.hp - 10)
+                        self.invulnerableTimer = 1.0
+                        EventDispatcher.publish("PLAYER_DAMAGED", self.hp)
+                    end
+                end
+
+                -- Colisión de proyectiles con enemigos
+                for i = #self.bullets, 1, -1 do
+                    local b = self.bullets[i]
+                    if math.abs(b.x - enemy.x) < enemy.width / 2 and math.abs(b.y - enemy.y) < enemy.height / 2 then
+                        enemy.hp = enemy.hp - 20
+                        table.remove(self.bullets, i)
+                        if enemy.hp <= 0 then
+                            enemy.alive = false
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    if self.invulnerableTimer and self.invulnerableTimer > 0 then
+        self.invulnerableTimer = self.invulnerableTimer - dt
+    end
+
     -- Temporizador de ataque visual
     if self.isAttacking then
         self.attackTimer = self.attackTimer - dt
@@ -150,30 +185,38 @@ function Player:update(dt, platforms)
     for i = #self.bullets, 1, -1 do
         local b = self.bullets[i]
         b.x = b.x + b.vx * dt
-        -- Eliminar si sale de la pantalla
         if b.x < 0 or b.x > screenWidth then
             table.remove(self.bullets, i)
         end
     end
 
-    -- Actualizar animaciones
+    -- Actualizar animaciones de forma segura según el estado actual
     if self.isAttacking then
         self.animTimer = self.animTimer + dt
         if self.animTimer > 0.1 then
             self.animTimer = 0
-            self.currentFrame = (self.currentFrame % #self.attackFrames) + 1
-        end
-    elseif self.vx ~= 0 and self.isGrounded then
-        self.animTimer = self.animTimer + dt
-        if self.animTimer > 0.1 then
-            self.animTimer = 0
-            self.currentFrame = (self.currentFrame % #self.walkFrames) + 1
+            self.currentFrame = self.currentFrame + 1
+            if self.currentFrame > #self.attackFrames then
+                self.currentFrame = 1
+            end
         end
     elseif not self.isGrounded then
         self.animTimer = self.animTimer + dt
         if self.animTimer > 0.08 then
             self.animTimer = 0
-            self.currentFrame = (self.currentFrame % #self.jumpFrames) + 1
+            self.currentFrame = self.currentFrame + 1
+            if self.currentFrame > #self.jumpFrames then
+                self.currentFrame = #self.jumpFrames
+            end
+        end
+    elseif self.vx ~= 0 then
+        self.animTimer = self.animTimer + dt
+        if self.animTimer > 0.1 then
+            self.animTimer = 0
+            self.currentFrame = self.currentFrame + 1
+            if self.currentFrame > #self.walkFrames then
+                self.currentFrame = 1
+            end
         end
     else
         self.currentFrame = 1
@@ -190,16 +233,16 @@ function Player:draw()
         love.graphics.draw(self.bulletImg, b.x, b.y, 0, b.facing * bScale, bScale, bw / 2, bh / 2)
     end
 
-    -- Dibujar jugador según su estado
-    if self.isAttacking then
+    -- Dibujar jugador de forma segura evitando índices nulos
+    if self.isAttacking and self.attackFrames[self.currentFrame] then
         local q = self.attackFrames[self.currentFrame]
         local _, _, w, h = q:getViewport()
         love.graphics.draw(self.attackSheet, q, self.x, self.y, 0, self.facing * scale, scale, w / 2, h / 2)
-    elseif not self.isGrounded then
+    elseif not self.isGrounded and self.jumpFrames[self.currentFrame] then
         local q = self.jumpFrames[self.currentFrame]
         local _, _, w, h = q:getViewport()
         love.graphics.draw(self.jumpSheet, q, self.x, self.y, 0, self.facing * scale, scale, w / 2, h / 2)
-    elseif self.vx ~= 0 then
+    elseif self.vx ~= 0 and self.walkFrames[self.currentFrame] then
         local q = self.walkFrames[self.currentFrame]
         local _, _, w, h = q:getViewport()
         love.graphics.draw(self.walkSheet, q, self.x, self.y, 0, self.facing * scale, scale, w / 2, h / 2)
