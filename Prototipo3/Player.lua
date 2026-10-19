@@ -21,6 +21,11 @@ function Player:init(x, y)
     self.attackSheet = love.graphics.newImage('assets/attack.png')
     self.bulletImg = love.graphics.newImage('assets/municion.png')
 
+   
+     self.shootSound = (pcall(love.audio.newSource, 'assets/disparo.wav', 'static')) and love.audio.newSource('assets/disparo.wav', 'static') or nil
+     self.jumpSound = (pcall(love.audio.newSource, 'assets/salto.wav', 'static')) and love.audio.newSource('assets/salto.wav', 'static') or nil
+     self.hurtSound = (pcall(love.audio.newSource, 'assets/danio.wav', 'static')) and love.audio.newSource('assets/danio.wav', 'static') or nil
+
     self.walkFrames = self:loadQuads(self.walkSheet, 8)
     self.jumpFrames = self:loadQuads(self.jumpSheet, 8)
     self.attackFrames = self:loadQuads(self.attackSheet, 2) -- 2 frames exactos
@@ -65,6 +70,12 @@ function Player:shoot()
         self.attackTimer = 0.25 -- Duración visual del ataque
         self.currentFrame = 1 -- Reiniciar frame al empezar a disparar
 
+        -- Reproducir sonido de disparo si existe
+        if self.shootSound then
+            self.shootSound:stop()
+            self.shootSound:play()
+        end
+
         -- Crear proyectil
         local bulletX = self.x + (self.facing * 20)
         local bulletY = self.y - 5
@@ -105,6 +116,13 @@ function Player:update(dt, platforms, enemies)
     if (love.keyboard.isDown('space') or love.keyboard.isDown('w')) and self.isGrounded then
         self.vy = self.jumpForce
         self.isGrounded = false
+        
+        -- Reproducir sonido de salto
+        if self.jumpSound then
+            self.jumpSound:stop()
+            self.jumpSound:play()
+        end
+
         EventDispatcher.publish("PLAYER_JUMPED")
     end
 
@@ -149,6 +167,13 @@ function Player:update(dt, platforms, enemies)
                     if not self.invulnerableTimer or self.invulnerableTimer <= 0 then
                         self.hp = math.max(0, self.hp - 10)
                         self.invulnerableTimer = 1.0
+
+                        -- Reproducir sonido de daño
+                        if self.hurtSound then
+                            self.hurtSound:stop()
+                            self.hurtSound:play()
+                        end
+
                         EventDispatcher.publish("PLAYER_DAMAGED", self.hp)
                     end
                 end

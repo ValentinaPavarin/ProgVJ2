@@ -44,6 +44,11 @@ function Level:init()
     self.totalEnemiesTarget = 10
     self.enemies = {}
 
+    -- Carga segura de sonidos de victoria y derrota
+    self.winSound = (pcall(love.audio.newSource, 'assets/victoria.wav', 'static')) and love.audio.newSource('assets/victoria.wav', 'static') or nil
+    self.loseSound = (pcall(love.audio.newSource, 'assets/derrota.wav', 'static')) and love.audio.newSource('assets/derrota.wav', 'static') or nil
+    self.soundPlayed = false
+
     -- Alturas específicas predefinidas para las 3 franjas (alta, media, baja)
     self.spawnHeights = { 200, 290, 390 }
 
@@ -59,7 +64,6 @@ end
 function Level:spawnNextEnemy()
     -- Solo genera si aún no alcanzamos el total objetivo de 10
     if self.enemiesDefeated + #self.enemies < self.totalEnemiesTarget then
-        -- Seleccionar una altura de forma cíclica o aleatoria entre las 3 franjas
         local heightIndex = ((self.enemiesDefeated + #self.enemies) % #self.spawnHeights) + 1
         local yPos = self.spawnHeights[heightIndex]
         
@@ -75,9 +79,26 @@ function Level:spawnNextEnemy()
 end
 
 function Level:update(dt)
+    -- Condición de derrota: HP en 0 O (munición en 0 sin haber ganado aún)
+    local outOfAmmo = (self.player.ammo <= 0 and self.enemiesDefeated < self.totalEnemiesTarget)
+    local isGameOver = (self.player.hp <= 0 or outOfAmmo)
+    local isVictory = (self.enemiesDefeated >= self.totalEnemiesTarget)
+
+    -- Si ya ganó o perdió, pausamos la acción del juego y reproducimos sonido único
+    if isGameOver or isVictory then
+        if not self.soundPlayed then
+            self.soundPlayed = true
+            if isGameOver and self.loseSound then
+                self.loseSound:play()
+            elseif isVictory and self.winSound then
+                self.winSound:play()
+            end
+        end
+        return
+    end
+
     self.player:update(dt, self.platforms, self.enemies)
     
-    -- Actualizar enemigos y gestionar la reaparición secuencial
     for i = #self.enemies, 1, -1 do
         local enemy = self.enemies[i]
         enemy:update(dt)
@@ -85,8 +106,6 @@ function Level:update(dt)
         if not enemy.alive then
             table.remove(self.enemies, i)
             self.enemiesDefeated = self.enemiesDefeated + 1
-            
-            -- Cuando uno muere, aparece inmediatamente el siguiente
             self:spawnNextEnemy()
         end
     end
@@ -125,6 +144,20 @@ function Level:draw()
         love.graphics.print("Presiona ESC para volver al menú", 250, 255)
     end
 
+    -- Pantalla de Derrota (Game Over) si HP llega a 0 o se acaba la munición
+    local outOfAmmoDraw = (self.player.ammo <= 0 and self.enemiesDefeated < self.totalEnemiesTarget)
+    if self.player.hp <= 0 or outOfAmmoDraw then
+        love.graphics.setColor(0, 0, 0, 0.85)
+        love.graphics.rectangle("fill", 150, 180, 500, 120, 10, 10)
+        love.graphics.setColor(1, 0, 0, 1)
+        
+        local mensajeDerrota = (self.player.hp <= 0) and "¡DERROTA! El laboratorio ha caído" or "¡DERROTA! Sin munición para defender"
+        love.graphics.print(mensajeDerrota, 175, 210, 0, 1.1, 1.1)
+        
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.print("Presiona ESC para volver al menú", 250, 255)
+    end
+
     -- Volver al menú
     love.graphics.setColor(0, 0, 0, 0.8)
     love.graphics.rectangle("fill", 540, 20, 220, 35, 5, 5)
@@ -133,7 +166,7 @@ function Level:draw()
 end
 
 function Level:mousepressed(x, y, button)
-    if button == 1 and self.enemiesDefeated < self.totalEnemiesTarget then
+    if button == 1 and self.enemiesDefeated < self.totalEnemiesTarget and self.player.hp > 0 and self.player.ammo > 0 then
         self.player:shoot()
     end
 end
